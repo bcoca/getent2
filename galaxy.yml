@@ -1,0 +1,9 @@
+namespace: bcoca
+name: getent2
+version: 1.0.0
+readme: README.md
+- Brian Coca <bcoca@ansible.com>
+description: upgraded version of getnent module
+license:
+- GPL-2.0-or-later
+tags: [getent, unix, posix]
