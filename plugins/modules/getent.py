@@ -132,7 +132,7 @@ if rc == 0:
         record = line.split(split)
         results[dbtree][record[0]] = record[1:]
 
-    module.exit_json(results)
+    module.exit_json(**results)
 
 elif rc == 1:
     msg = "Missing arguments, or database unknown."
@@ -140,7 +140,7 @@ elif rc == 2:
     msg = "One or more supplied key could not be found in the database."
     if not fail_key:
         results[dbtree][key] = None
-        module.exit_json(results, msg=msg)
+        module.exit_json(results=results, msg=msg)
 elif rc == 3:
     msg = "Enumeration not supported on this database."
 
