@@ -16,9 +16,7 @@ DOCUMENTATION = '''
 module: getent
 short_description: A wrapper to the unix getent utility
 description:
-     - Runs getent against one of it's various databases and returns information into
-       the host's facts, in a getent_<database> prefixed variable.
-version_added: "1.8"
+     - Runs getent against one of it's various databases and returns information for the host, use 'register' to capture for reuse. 
 options:
     database:
         description:
@@ -50,6 +48,7 @@ EXAMPLES = '''
 - getent:
     database: passwd
     key: root
+  register: getent_password
 - debug:
     var: getent_passwd
 
@@ -57,12 +56,14 @@ EXAMPLES = '''
 - getent:
     database: group
     split: ':'
+  register: getent_group
 - debug:
     var: getent_group
 
 # get all hosts, split by tab
 - getent:
     database: hosts
+  register: getent_hosts
 - debug:
     var: getent_hosts
 
@@ -71,6 +72,7 @@ EXAMPLES = '''
     database: services
     key: http
     fail_key: False
+  register: getnent_services
 - debug:
     var: getent_services
 
@@ -79,6 +81,7 @@ EXAMPLES = '''
     database: shadow
     key: www-data
     split: ':'
+  register: getnent_shadow
 - debug:
     var: getent_shadow
 
@@ -131,7 +134,7 @@ def main():
             record = line.split(split)
             results[dbtree][record[0]] = record[1:]
 
-        module.exit_json(ansible_facts=results)
+        module.exit_json(results)
 
     elif rc == 1:
         msg = "Missing arguments, or database unknown."
@@ -139,7 +142,7 @@ def main():
         msg = "One or more supplied key could not be found in the database."
         if not fail_key:
             results[dbtree][key] = None
-            module.exit_json(ansible_facts=results, msg=msg)
+            module.exit_json(results, msg=msg)
     elif rc == 3:
         msg = "Enumeration not supported on this database."
 
