@@ -16,7 +16,7 @@ DOCUMENTATION = '''
 module: getent
 short_description: A wrapper to the unix getent utility
 description:
-     - Runs getent against one of it's various databases and returns information for the host, use 'register' to capture for reuse. 
+     - Runs getent against one of it's various databases and returns information for the host, use 'register' to capture for reuse.
 options:
     database:
         description:
@@ -91,63 +91,57 @@ import traceback
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
 
+module = AnsibleModule(
+    argument_spec=dict(
+        database=dict(type='str', required=True),
+        key=dict(type='str'),
+        split=dict(type='str'),
+        fail_key=dict(type='bool', default=True),
+    ),
+    supports_check_mode=True,
+)
 
-def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            database=dict(type='str', required=True),
-            key=dict(type='str'),
-            split=dict(type='str'),
-            fail_key=dict(type='bool', default=True),
-        ),
-        supports_check_mode=True,
-    )
+colon = ['passwd', 'shadow', 'group', 'gshadow']
 
-    colon = ['passwd', 'shadow', 'group', 'gshadow']
+database = module.params['database']
+key = module.params.get('key')
+split = module.params.get('split')
+fail_key = module.params.get('fail_key')
 
-    database = module.params['database']
-    key = module.params.get('key')
-    split = module.params.get('split')
-    fail_key = module.params.get('fail_key')
+getent_bin = module.get_bin_path('getent', True)
 
-    getent_bin = module.get_bin_path('getent', True)
+if key is not None:
+    cmd = [getent_bin, database, key]
+else:
+    cmd = [getent_bin, database]
 
-    if key is not None:
-        cmd = [getent_bin, database, key]
-    else:
-        cmd = [getent_bin, database]
+if split is None and database in colon:
+    split = ':'
 
-    if split is None and database in colon:
-        split = ':'
+try:
+    rc, out, err = module.run_command(cmd)
+except Exception as e:
+    module.fail_json(msg=to_native(e), exception=traceback.format_exc())
 
-    try:
-        rc, out, err = module.run_command(cmd)
-    except Exception as e:
-        module.fail_json(msg=to_native(e), exception=traceback.format_exc())
+msg = "Unexpected failure!"
+dbtree = 'getent_%s' % database
+results = {'collection': True, dbtree: {}}
 
-    msg = "Unexpected failure!"
-    dbtree = 'getent_%s' % database
-    results = {collection: True, dbtree: {}}
+if rc == 0:
+    for line in out.splitlines():
+        record = line.split(split)
+        results[dbtree][record[0]] = record[1:]
 
-    if rc == 0:
-        for line in out.splitlines():
-            record = line.split(split)
-            results[dbtree][record[0]] = record[1:]
+    module.exit_json(results)
 
-        module.exit_json(results)
+elif rc == 1:
+    msg = "Missing arguments, or database unknown."
+elif rc == 2:
+    msg = "One or more supplied key could not be found in the database."
+    if not fail_key:
+        results[dbtree][key] = None
+        module.exit_json(results, msg=msg)
+elif rc == 3:
+    msg = "Enumeration not supported on this database."
 
-    elif rc == 1:
-        msg = "Missing arguments, or database unknown."
-    elif rc == 2:
-        msg = "One or more supplied key could not be found in the database."
-        if not fail_key:
-            results[dbtree][key] = None
-            module.exit_json(results, msg=msg)
-    elif rc == 3:
-        msg = "Enumeration not supported on this database."
-
-    module.fail_json(msg=msg)
-
-
-if __name__ == '__main__':
-    main()
+module.fail_json(msg=msg)
